@@ -15,3 +15,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "retrofail"
 include(":example")
+include(":retrofail")
