@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Retrofail</string>
+    <string name="test_button_text">Test</string>
 </resources>
