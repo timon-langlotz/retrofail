@@ -5,7 +5,12 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import java.io.EOFException
 import java.io.IOException
+import java.net.BindException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 internal class FailoverInterceptor(
     private val okHttpClient: OkHttpClient,
@@ -15,28 +20,34 @@ internal class FailoverInterceptor(
     override fun intercept(chain: Interceptor.Chain): Response {
         return tryExecuteOnNetworks(
             chain.request(),
-            networkProvider.getAvailableNetworks(),
-            lastException = null
+            networkProvider.getAvailableNetworks().iterator(),
+            onNoNetworksLeftToTry = { IOException("No network interfaces available") }
         )
     }
 
     private fun tryExecuteOnNetworks(
         request: Request,
-        networks: List<Network>,
-        lastException: IOException?,
+        networks: Iterator<Network>,
+        onNoNetworksLeftToTry: () -> IOException,
     ): Response {
-        if (networks.isEmpty()) {
+        if (!networks.hasNext()) {
             logger.d("No network interfaces left to try")
-            throw lastException ?: IOException("No network interfaces available")
+            throw onNoNetworksLeftToTry()
         }
-        val network = networks.first()
+        val network = networks.next()
         return try {
             logger.d("Executing call on network interface $network")
             executeOnNetwork(network, request)
         } catch (e: IOException) {
-            logger.d("Failed to execute call on network interface $network", e)
-            val remaining = networks.minus(network)
-            tryExecuteOnNetworks(request, remaining, e)
+            if (attemptFailover(e)) {
+                logger.d("Failed to execute call on network interface $network, " +
+                        "attempting failover", e)
+                tryExecuteOnNetworks(request, networks, onNoNetworksLeftToTry = { e })
+            } else {
+                logger.d("Failed to execute call on network interface $network, " +
+                        "not attempting failover", e)
+                throw e
+            }
         }
     }
 
@@ -46,5 +57,17 @@ internal class FailoverInterceptor(
             .build()
         val call = client.newCall(request)
         return call.execute()
+    }
+
+    private fun attemptFailover(e: IOException): Boolean {
+        return when (e) {
+            is BindException,
+            is ConnectException,
+            is EOFException,
+            is SocketTimeoutException,
+            is UnknownHostException -> true
+
+            else -> false
+        }
     }
 }

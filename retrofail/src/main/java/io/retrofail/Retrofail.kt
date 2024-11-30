@@ -15,13 +15,18 @@ public class Retrofail(
      * Constructs a new [OkHttpClient] with network interface failover capabilities.
      *
      * @param baseClient The base [OkHttpClient] from which network specific clients will be derived.
-     * @param networkConfig The [NetworkConfig].
+     * @param networkPriorityConfig The [NetworkPriorityConfig].
+     * @param networkPriorityResolver An optional [NetworkPriorityResolver].
      *
      * @return The [OkHttpClient] with network interface failover capabilities.
      */
-    public fun client(baseClient: OkHttpClient, networkConfig: NetworkConfig): OkHttpClient {
+    public fun client(
+        baseClient: OkHttpClient,
+        networkPriorityConfig: NetworkPriorityConfig,
+        networkPriorityResolver: NetworkPriorityResolver? = null,
+    ): OkHttpClient {
         val connectivityManager = application.getSystemService(ConnectivityManager::class.java)
-        val networkProvider = NetworkProvider(connectivityManager, networkConfig, logger)
+        val networkProvider = NetworkProvider(connectivityManager, networkPriorityConfig, networkPriorityResolver, logger)
         val interceptor = FailoverInterceptor(baseClient, networkProvider, logger)
         return baseClient.newBuilder()
             .addInterceptor(interceptor)

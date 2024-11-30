@@ -4,7 +4,7 @@ import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import io.retrofail.NetworkConfig
+import io.retrofail.NetworkPriorityConfig
 import io.retrofail.Retrofail
 import io.retrofail.example.service.HttpBinService
 import kotlinx.coroutines.Dispatchers
@@ -21,13 +21,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val retrofail = Retrofail(application, LogcatLogger)
         val baseClient = OkHttpClient.Builder()
             .build()
-        val networkConfig = NetworkConfig.Builder()
-            .addWifi()
-            .addCellular()
-            .build()
+        val networkPriorityConfig = NetworkPriorityConfig.createWifiThenCellular()
         service = Retrofit.Builder()
             .baseUrl(HttpBinService.BASE_URL)
-            .client(retrofail.client(baseClient, networkConfig))
+            .client(retrofail.client(baseClient, networkPriorityConfig))
             .build()
             .create(HttpBinService::class.java)
     }
